@@ -1,8 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:note_app/view/screen_add_note.dart';
 
-class ScreenAllNotes extends StatelessWidget {
+class ScreenAllNotes extends StatefulWidget {
   const ScreenAllNotes({super.key});
+
+  @override
+  _ScreenAllNotesState createState() => _ScreenAllNotesState();
+}
+
+class _ScreenAllNotesState extends State<ScreenAllNotes> {
+  List<Map<String, String>> notes = [];
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize with some dummy notes (optional)
+    notes = List.generate(
+      5,
+      (index) => {
+        'id': index.toString(),
+        'title': 'Note $index',
+        'content': 'This is content for note $index',
+      },
+    );
+  }
+
+  // Method to add or update a note
+  void _addOrUpdateNote(Map<String, String> noteData) {
+    bool isEdit = notes.any((note) => note['id'] == noteData['id']);
+    setState(() {
+      if (isEdit) {
+        // Update the existing note
+        int index = notes.indexWhere((note) => note['id'] == noteData['id']);
+        notes[index] = noteData;
+      } else {
+        // Add new note
+        notes.add(noteData);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,22 +53,47 @@ class ScreenAllNotes extends StatelessWidget {
           crossAxisSpacing: 10,
           padding: const EdgeInsets.all(20),
           children: List.generate(
-            10,
+            notes.length,
             (index) => NoteItem(
-              id: index.toString(),
-              title: 'Note $index',
-              content: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque sit amet ullamcorper tortor. In sit amet enim mi. Sed sed magna sit amet lacus volutpat lacinia consequat eget risus. Maecenas pharetra libero at placerat imperdiet. Fusce nisl magna, euismod nec pulvinar sollicitudin, fermentum eu nibh. Fusce semper pulvinar convallis. Nullam vel diam velit. Aenean ut erat risus. Morbi aliquam elementum molestie. Nulla facilisi. Mauris sodales urna quis massa varius luctus',
+              id: notes[index]['id']!,
+              title: notes[index]['title']!,
+              content: notes[index]['content']!,
+              onDelete: (id) {
+                setState(() {
+                  notes.removeWhere((note) => note['id'] == id);
+                });
+              },
+              onEdit: () async {
+                // Navigate to edit screen and wait for the result
+                Map<String, String>? result = await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => ScreenAddNote(
+                      type: ActionType.editNote,
+                      id: notes[index]['id'],
+                      existingTitle: notes[index]['title'],
+                      existingContent: notes[index]['content'],
+                    ),
+                  ),
+                );
+                if (result != null) {
+                  _addOrUpdateNote(result);  // Update note
+                }
+              },
             ),
           ),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.of(context).push(
+        onPressed: () async {
+          // Navigate to add note screen and wait for the result
+          Map<String, String>? result = await Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => ScreenAddNote(type: ActionType.addNote),
             ),
           );
+          if (result != null) {
+            _addOrUpdateNote(result);  // Add new note
+          }
         },
         label: const Text('New'),
         icon: const Icon(Icons.add),
@@ -46,27 +107,22 @@ class NoteItem extends StatelessWidget {
   final String id;
   final String title;
   final String content;
+  final VoidCallback onEdit;
+  final Function(String) onDelete;
 
   const NoteItem({
     super.key,
     required this.id,
     required this.title,
     required this.content,
+    required this.onDelete,
+    required this.onEdit,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => ScreenAddNote(
-              type: ActionType.editNote,
-              id: id,
-            ),
-          ),
-        );
-      },
+      onTap: onEdit,
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
@@ -83,17 +139,13 @@ class NoteItem extends StatelessWidget {
                     title,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 20,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
                 IconButton(
-                  onPressed: () {
-                    
-                    // Add delete functionality here
-                  },
+                  onPressed: () => onDelete(id),
                   icon: const Icon(
                     Icons.delete,
                     color: Colors.red,
@@ -103,12 +155,9 @@ class NoteItem extends StatelessWidget {
             ),
             Text(
               content,
-              maxLines: 9,
+              maxLines: 8,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.black,
-                fontSize: 14,
-              ),
+              style: const TextStyle(fontSize: 14),
             ),
           ],
         ),
@@ -116,5 +165,3 @@ class NoteItem extends StatelessWidget {
     );
   }
 }
-
-// Assuming ScreenAddNote and ActionType are defined elsewhere
